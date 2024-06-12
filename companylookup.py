@@ -1,6 +1,7 @@
 import os
 import abc
 import io
+import re
 import pandas as pd
 from fuzzywuzzy import process
 from fuzzywuzzy import fuzz
@@ -58,9 +59,12 @@ class FuzzyCompanyName_PostCode_City_RefineByStreetAndHouse_MatchStrategy(MatchS
 
     def combine_name_address(self,row):
         name_parts = [row['Name'], row['Name 1'], row['Name 2'], row['Postal Code'], row['City']]
-        combined = ' '.join(filter(None, name_parts))
+        combined = self.unique_words(' '.join(filter(None, name_parts)))        
+        return combined
+    
+    def unique_words(self,string):
         seen = set()
-        unique_words = [word for word in combined.split() if not (word in seen or seen.add(word))]
+        unique_words = [word for word in string.split() if not (word in seen or seen.add(word))]
         return ' '.join(unique_words)
         
     def execute(self, df: pd.DataFrame, invoice_data_dict: dict) -> list:
@@ -73,16 +77,20 @@ class FuzzyCompanyName_PostCode_City_RefineByStreetAndHouse_MatchStrategy(MatchS
         df['Combined'] = df.apply(lambda x: self.combine_name_address(x), axis=1)
         #Query the column by company name, postal Code and City
         initial_query = ' '.join(filter(None,[ company_name.casefold(),(address_components.get('postalCode') or '').casefold(),(address_components.get('city') or '').casefold()]))
-   
+        initial_query = self.unique_words(initial_query)       
+
         #Get the Initial Search resuult
         best_results, alternative_results = self.fuzzy_search_combined(initial_query, df)
 
         #Store the Best Result
         matches = self.append_final_results_to_matches(best_results,matches)
 
+        refine_query = ' '.join(filter(None,[(address_components.get('house') or '').casefold(),(address_components.get('streetAddress') or '').casefold()]))
+        refine_query = self.unique_words(refine_query)    
+
         #Define the refine search components
         refine_components = {
-            'Street': ' '.join(filter(None,[(address_components.get('house') or '').casefold(),(address_components.get('streetAddress') or '').casefold()]))
+            'Street': refine_query
         }
 
         #Refine the Initial alternative Result 
