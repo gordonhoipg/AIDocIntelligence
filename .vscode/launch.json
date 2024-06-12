@@ -5,7 +5,7 @@
       "name": "CodeWithMS - Local Testing",
       "type": "debugpy",
       "request": "launch",
-      "program": "localtest.py",
+      "program": "rig.py",
       "console": "integratedTerminal",
       "args": "datafiles/documents > datafiles/test/output.txt"
     },    
